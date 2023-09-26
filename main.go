@@ -17,9 +17,9 @@ func main() {
 	flag.Parse()
 
 	// fmt.Printf("recursive: %v\n", recursive)
-	for idx, arg := range flag.Args() {
-		fmt.Printf("arg[%d]: %s\n", idx, arg)
-	}
+	// for idx, arg := range flag.Args() {
+	// 	fmt.Printf("arg[%d]: %s\n", idx, arg)
+	// }
 
 	workdir := make([]string, 0)
 	if flag.NArg() == 0 {
@@ -30,7 +30,19 @@ func main() {
 
 	for _, wd := range workdir {
 		if err := walk(wd); err != nil {
-			fmt.Printf("walk err: %s", err.Error())
+			fmt.Printf("walk err: %v", err)
+			os.Exit(-1)
+		}
+
+		absPath, err := filepath.Abs(wd)
+		if err != nil {
+			fmt.Printf("get absolute path err: %s", err.Error())
+			continue
+		}
+		// fmt.Printf("curr: %s\n", absPath)
+		err = normalize(absPath)
+		if err != nil {
+			fmt.Printf("normalize err: %s", err.Error())
 			os.Exit(-1)
 		}
 	}
@@ -59,6 +71,7 @@ func walk(workdir string) error {
 
 		for _, file := range fileinfo {
 			if file.Mode().IsDir() {
+				// 디렉토리인 경우 하위 디렉토리 탐색
 				if recursive {
 					if err := walk(filepath.Join(workdir, file.Name())); err != nil {
 						fmt.Printf("recursive err: %s\n", err.Error())
@@ -66,19 +79,13 @@ func walk(workdir string) error {
 				}
 			}
 
+			// 파일명 정규화 포맷 변경
 			// fmt.Printf("visited: %s\n", filepath.Join(workdir, file.Name()))
 			err := normalize(filepath.Join(workdir, file.Name()))
 			if err != nil {
 				fmt.Printf("normalize err: %s", err.Error())
 				return err
 			}
-		}
-	} else {
-		// fmt.Printf("visited file: %s\n", file.Name())
-		err := normalize(filepath.Join(file.Name()))
-		if err != nil {
-			fmt.Printf("normalize err: %s", err.Error())
-			return err
 		}
 	}
 
@@ -88,9 +95,8 @@ func walk(workdir string) error {
 func normalize(oldPath string) error {
 	newPath := filepath.Join(filepath.Dir(oldPath), norm.NFC.String(filepath.Base(oldPath)))
 
-	if strings.Compare(oldPath, newPath) == 0 {
-		return nil
-	} else {
+	if strings.Compare(oldPath, newPath) != 0 {
 		return os.Rename(oldPath, newPath)
 	}
+	return nil
 }
